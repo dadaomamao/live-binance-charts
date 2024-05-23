@@ -21,11 +21,7 @@ Leveraging `mplfinance`—built on the foundation of the widely-used `matplotlib
 ## Dependencies
 The required packages to run this code can be found in the `requirements.txt` file. To run this file, execute the following code block:
 ```
-$ pip install -r requirements.txt 
-```
-Alternatively, you can install the required packages manually like this:
-```
-$ pip install <package>
+pip install -r requirements.txt 
 ```
 
 ## How to run
