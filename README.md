@@ -26,7 +26,7 @@ pip install -r requirements.txt
 
 ## How to run
 - Clone the repository
-- Run `$ python src/finplot/main.py` or `$ python src/mplfinance/main.py` 
+- Run `python src/finplot/main.py` or `python src/mplfinance/main.py` 
 - See result
 
 ## Images
