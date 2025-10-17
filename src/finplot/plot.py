@@ -2,9 +2,50 @@ import finplot as fplt
 import pandas as pd
 from ta.momentum import RSIIndicator
 import pyqtgraph as pg
+import time
 
-from binance_api import client, start_kline_socket
+from binance_api import client, start_kline_socket, get_connection_status
 import vars
+
+# === 性能优化：RSI缓存和变更检测 ===
+# 缓存每个图表的RSI计算结果，避免重复计算
+_rsi_cache = {}  # {key: (last_length, rsi_series)}
+# 记录每个图表的数据长度，用于检测是否有新数据
+_data_length_cache = {}  # {key: last_length}
+
+
+def _calculate_rsi_cached(df, key):
+    """
+    智能RSI计算：使用缓存避免重复计算
+    只在数据变化时重新计算，否则返回缓存结果
+    
+    Args:
+        df: 包含Close列的DataFrame
+        key: 图表标识符（如 'BTCUSDT_1m'）
+    
+    Returns:
+        RSI Series
+    """
+    current_length = len(df)
+    
+    # 检查缓存是否有效
+    if key in _rsi_cache:
+        cached_length, cached_rsi = _rsi_cache[key]
+        # 如果数据长度未变，直接返回缓存
+        if cached_length == current_length:
+            return cached_rsi
+    
+    # 数据已变化，重新计算RSI
+    try:
+        rsi = RSIIndicator(close=df["Close"]).rsi()
+        # 更新缓存
+        _rsi_cache[key] = (current_length, rsi)
+        return rsi
+    except Exception as e:
+        # 如果计算失败，返回缓存值（如果有）或空Series
+        if key in _rsi_cache:
+            return _rsi_cache[key][1]
+        return pd.Series(dtype=float)
 
 
 def add_plot(symbol, tf):
@@ -24,7 +65,8 @@ def add_plot(symbol, tf):
     vars.window.axs.append(ax)
     vars.window.axs.append(ax_rsi)
 
-    vars.axs_dict[symbol] = [ax, ax_rsi]
+    key = f"{symbol}_{tf}"
+    vars.axs_dict[key] = [ax, ax_rsi]
 
     # Add widgets to layout, top to bottom, left to right
     # addWidget (self, QWidget, row, column, rowSpan, columnSpan, Qt.Alignment alignment = 0)
@@ -50,8 +92,9 @@ def add_plot(symbol, tf):
 # Adds candles and volume
 def update_plot(sym, timeframe):
     # Get the ax
-    ax = vars.axs_dict[sym][0]
-    ax_rsi = vars.axs_dict[sym][1]
+    key = f"{sym}_{timeframe}"
+    ax = vars.axs_dict[key][0]
+    ax_rsi = vars.axs_dict[key][1]
 
     # Use latest 120 candles to fill up the plot
     hist_candles = client.get_klines(symbol=sym, interval=timeframe, limit=120)
@@ -78,28 +121,46 @@ def update_plot(sym, timeframe):
         }
     )
 
-    # plot the candles
-    vars.plots[sym + " price"] = fplt.candlestick_ochl(
-        df[["Time", "Open", "Close", "High", "Low"]], ax=ax
-    )
+    # 对于1m时间周期，使用实时价格线图而不是蜡烛图
+    if timeframe == "1m":
+        # 将分钟数据转换为次级数据点，以便与实时100ms数据衔接
+        # 使用每分钟收盘价落在该分钟的最后100ms处，避免与实时桶重复
+        df['Time'] = df['Time'] + pd.Timedelta(milliseconds=59000)  # 59s 位置
+        df.set_index("Time", inplace=True)
+        
+        # plot实时价格线（不是蜡烛图）
+        vars.plots[key + " price"] = fplt.plot(
+            df["Close"], ax=ax, color="#2196F3", width=2, legend=f"{sym} 实时价格"
+        )
+        
+        # Add volume overlay（保持时间列存在）
+        vars.plots[key + " volume"] = fplt.volume_ocv(
+            df.reset_index()[["Time", "Open", "Close", "Volume"]], ax=ax.overlay()
+        )
+    else:
+        # 其他时间周期使用蜡烛图
+        # plot the candles
+        vars.plots[key + " price"] = fplt.candlestick_ochl(
+            df[["Time", "Open", "Close", "High", "Low"]], ax=ax
+        )
 
-    # Add volume overlay
-    vars.plots[sym + " volume"] = fplt.volume_ocv(
-        df[["Time", "Open", "Close", "Volume"]], ax=ax.overlay()
-    )
+        # Add volume overlay
+        vars.plots[key + " volume"] = fplt.volume_ocv(
+            df[["Time", "Open", "Close", "Volume"]], ax=ax.overlay()
+        )
 
-    df.set_index("Time", inplace=True)
+        df.set_index("Time", inplace=True)
 
-    # RSI overlay
-    vars.plots[sym + " rsi"] = fplt.plot(
-        RSIIndicator(close=df["Close"]).rsi(), ax=ax_rsi, color="#47c9d9"
-    )
+    # RSI overlay - 使用缓存计算
+    rsi = _calculate_rsi_cached(df, key)
+    vars.plots[key + " rsi"] = fplt.plot(rsi, ax=ax_rsi, color="#47c9d9")
 
     # Use symbol name as legend
-    fplt.add_legend(sym, ax=ax)
+    legend_text = f"{sym} - 实时" if timeframe == "1m" else f"{sym} - {timeframe}"
+    fplt.add_legend(legend_text, ax=ax)
 
     # Save the data for this coin in the dictionary
-    vars.symbol_data_dict[sym] = df
+    vars.symbol_data_dict[key] = df
 
     # Make elements that highlight the current price
     price_highlight(df, ax, ax_rsi)
@@ -161,47 +222,120 @@ def price_highlight(df, ax, ax_rsi):
     ax_rsi.addItem(ax_rsi.line30, ignoreBounds=True)
 
     # Hex as #RRGGBBAA + 1A is 10% opacity
-    fplt.add_band(30, 70, color=pg.mkColor("#9c24ac1A"), ax=ax_rsi)
+    # 使用新的API名称
+    try:
+        fplt.add_horizontal_band(30, 70, color=pg.mkColor("#9c24ac1A"), ax=ax_rsi)
+    except AttributeError:
+        # 如果新API不可用，使用旧API
+        fplt.add_band(30, 70, color=pg.mkColor("#9c24ac1A"), ax=ax_rsi)
 
+
+# 性能监控统计
+_perf_stats = {
+    'last_update_time': 0,
+    'avg_update_time': 0,
+    'update_count': 0,
+    'max_update_time': 0
+}
 
 # Update the plots
 def realtime_update_plot():
-    """Called at regular intervals by a timer."""
+    """Called at regular intervals by a timer. 优化版：只更新变化的数据"""
+    
+    # 性能监控开始
+    start_time = time.time()
 
     # If call is too early
     if all(df.empty for df in vars.symbol_data_dict.values()):
         return
 
+    # 获取连接状态
+    conn_status = get_connection_status()
+    status_color = "#2e7871" if conn_status['connected'] else "#e84752"
+    status_text = "●" if conn_status['connected'] else "○"
+
+    # 统计变更：用于性能监控
+    updates_count = 0
+    skipped_count = 0
+
     # first update all data, then graphics (for zoom rigidity)
-    # key = 'sym volume'
+    # key = 'SYMBOL_TIMEFRAME type' (e.g., 'BTCUSDT_1m price')
     for key in vars.plots:
-        sym = key.split()[0]
-        df = vars.symbol_data_dict[sym]
+        # Parse key: "BTCUSDT_1m price" -> ["BTCUSDT_1m", "price"]
+        parts = key.rsplit(' ', 1)
+        if len(parts) != 2:
+            continue
+            
+        full_key = parts[0]  # e.g., "BTCUSDT_1m"
+        plot_type = parts[1]  # e.g., "price"
+        
+        if full_key not in vars.symbol_data_dict:
+            continue
+            
+        df = vars.symbol_data_dict[full_key]
+        
+        # === 变更检测：跳过未变化的数据 ===
+        current_length = len(df)
+        cached_length = _data_length_cache.get(full_key, -1)
+        
+        # 只处理price类型的plot来检测变更（避免重复检测）
+        if plot_type == "price":
+            if current_length == cached_length:
+                # 数据未变化，跳过所有更新
+                skipped_count += 1
+                continue
+            else:
+                # 数据已变化，更新缓存
+                _data_length_cache[full_key] = current_length
+                updates_count += 1
 
         # Get correct ax, first is for the chart
-        axs = vars.axs_dict[sym]
+        if full_key not in vars.axs_dict:
+            continue
+            
+        axs = vars.axs_dict[full_key]
         ax = axs[0]
         ax_rsi = axs[1]
+        
+        # 检查是否是1m实时图
+        is_realtime = full_key.endswith("_1m")
 
-        if key.split()[1] == "price":
-            # OCHL for some reason
-            vars.plots[key].update_data(df[["Open", "Close", "High", "Low"]])
+        try:
+            if plot_type == "price":
+                if is_realtime:
+                    # 对于实时图，更新价格线（df索引为时间，500ms桶）
+                    vars.plots[key].update_data(df["Close"])
+                else:
+                    # 对于蜡烛图，更新OCHL
+                    vars.plots[key].update_data(df[["Open", "Close", "High", "Low"]])
 
-        if key.split()[1] == "volume":
-            vars.plots[key].update_data(df[["Open", "Close", "Volume"]])
+            if plot_type == "volume":
+                # 对于实时图和蜡烛图，统一使用包含时间列的OV数据
+                # 修复：DataFrame索引重置后，索引列名可能不是"Time"
+                df_with_time = df.reset_index()
+                # 确保第一列命名为Time（无论索引原来叫什么）
+                time_col_name = df_with_time.columns[0]
+                if time_col_name != "Time":
+                    df_with_time = df_with_time.rename(columns={time_col_name: "Time"})
+                vars.plots[key].update_data(df_with_time[["Time", "Open", "Close", "Volume"]])
 
-        if key.split()[1] == "rsi":
-            rsi = RSIIndicator(close=df["Close"]).rsi()
-            vars.plots[key].update_data(rsi)
+            if plot_type == "rsi":
+                # 使用缓存的RSI计算，避免重复计算
+                rsi = _calculate_rsi_cached(df, full_key)
+                vars.plots[key].update_data(rsi)
+        except Exception as e:
+            # 静默处理更新错误，避免刷屏
+            if _perf_stats['update_count'] % 100 == 0:
+                print(f"警告：更新图表 {key} 时出错: {e}")
 
         current_price = df["Close"].iloc[-1]
-        old_price = df["Close"].iloc[-2]
+        old_price = df["Close"].iloc[-2] if len(df) > 1 else current_price
 
         if current_price > old_price:
             rec_color = "#2e7871"
-        if current_price == old_price:
+        elif current_price == old_price:
             rec_color = "#4a4e59"
-        if current_price < old_price:
+        else:
             rec_color = "#e84752"
 
         # Color of line
@@ -216,6 +350,7 @@ def realtime_update_plot():
         if "-" in vars.countdown:
             vars.countdown = "0:00:00"
 
+        # 添加连接状态指示器
         ax.text.setHtml(
             (
                 '<b style="color:white; background-color:'
@@ -226,6 +361,33 @@ def realtime_update_plot():
                 + rec_color
                 + '";>'
                 + vars.countdown
+                + f' <span style="color:{status_color};">{status_text}</span>'
                 + "</body>"
             )
         )
+    
+    # 性能监控结束
+    end_time = time.time()
+    elapsed_ms = (end_time - start_time) * 1000
+    
+    # 更新性能统计
+    _perf_stats['last_update_time'] = elapsed_ms
+    _perf_stats['update_count'] += 1
+    _perf_stats['max_update_time'] = max(_perf_stats['max_update_time'], elapsed_ms)
+    
+    # 计算平均值（滑动平均）
+    alpha = 0.1  # 平滑系数
+    if _perf_stats['avg_update_time'] == 0:
+        _perf_stats['avg_update_time'] = elapsed_ms
+    else:
+        _perf_stats['avg_update_time'] = (
+            alpha * elapsed_ms + (1 - alpha) * _perf_stats['avg_update_time']
+        )
+    
+    # 每50次更新输出一次性能统计（避免日志刷屏）
+    if _perf_stats['update_count'] % 50 == 0:
+        print(f"[性能监控] 更新次数: {_perf_stats['update_count']}, "
+              f"本次: {elapsed_ms:.1f}ms, "
+              f"平均: {_perf_stats['avg_update_time']:.1f}ms, "
+              f"最大: {_perf_stats['max_update_time']:.1f}ms, "
+              f"实际更新: {updates_count}, 跳过: {skipped_count}")

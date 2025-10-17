@@ -34,6 +34,8 @@ usdt_mode = False
 symbol_data_dict = {}
 
 selected_coins = []
+current_symbol = "BTCUSDT"  # 当前选择的币种
+coin_selector = None  # 币种选择器widget
 
 global_layout = None
 window = None
