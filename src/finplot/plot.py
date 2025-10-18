@@ -133,6 +133,14 @@ def update_plot(sym, timeframe):
             df["Close"], ax=ax, color="#2196F3", width=2, legend=f"{sym} 实时价格"
         )
         
+        # === 添加日内均线（分钟级别） ===
+        # 只显示MA60均线（60分钟移动平均）
+        if len(df) >= 60:
+            ma60 = df["Close"].rolling(window=60).mean()
+            vars.plots[key + " ma60"] = fplt.plot(
+                ma60, ax=ax, color="#FFD93D", width=2, legend="MA60"
+            )
+        
         # Add volume overlay（保持时间列存在）
         vars.plots[key + " volume"] = fplt.volume_ocv(
             df.reset_index()[["Time", "Open", "Close", "Volume"]], ax=ax.overlay()
@@ -150,6 +158,21 @@ def update_plot(sym, timeframe):
         )
 
         df.set_index("Time", inplace=True)
+        
+        # === 添加均线（K线图） ===
+        # 为5m、1h、1d图表添加MA25、MA7、MA99三条均线
+        ma_configs = [
+            (25, "#FF6B6B", "MA25"),  # 红色 - 25周期均线
+            (7, "#4ECDC4", "MA7"),    # 青色 - 7周期均线
+            (99, "#A8E6CF", "MA99"),  # 绿色 - 99周期均线
+        ]
+        
+        for period, color, label in ma_configs:
+            if len(df) >= period:
+                ma = df["Close"].rolling(window=period).mean()
+                vars.plots[key + f" ma{period}"] = fplt.plot(
+                    ma, ax=ax, color=color, width=1.5, legend=label
+                )
 
     # RSI overlay - 使用缓存计算
     rsi = _calculate_rsi_cached(df, key)
@@ -308,6 +331,17 @@ def realtime_update_plot():
                 else:
                     # 对于蜡烛图，更新OCHL
                     vars.plots[key].update_data(df[["Open", "Close", "High", "Low"]])
+            
+            # 更新均线数据（用于所有图表）
+            if plot_type.startswith("ma"):
+                # 提取均线周期数：例如 "ma5" -> 5
+                try:
+                    period = int(plot_type[2:])
+                    if len(df) >= period:
+                        ma = df["Close"].rolling(window=period).mean()
+                        vars.plots[key].update_data(ma)
+                except (ValueError, KeyError):
+                    pass  # 忽略无效的均线key
 
             if plot_type == "volume":
                 # 对于实时图和蜡烛图，统一使用包含时间列的OV数据
