@@ -1,38 +1,24 @@
-# Live Binance Charts
-[![Python 3.8](https://img.shields.io/badge/python-3.8-blue.svg)](https://www.python.org/downloads/release/python-380/)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![MIT License](https://img.shields.io/github/license/StephanAkkerman/Live_Binance_Charts.svg?color=brightgreen)](https://opensource.org/licenses/MIT)
+# 仓库说明
 
----
-This repository showcases my efforts in visualizing live cryptocurrency price data from the Binance exchange using two distinct implementations.
+本仓库仅作为人工智能自动生成输出的归档与评估样本保留。
 
-## 📊 Implementations
-### 1. finplot
-Utilizing `finplot` combined with `PyQt6`, this implementation offers a sophisticated and advanced charting solution in Python.
+## 重要说明
 
-### 2. mplfinance
-Leveraging `mplfinance`—built on the foundation of the widely-used `matplotlib` library—this approach provides another way to chart cryptocurrency data. Configure your Binance API keys in `src/mplfinance/keys.py` to auto-plot your assets, or leave it blank to manually specify the cryptocurrencies you'd like to visualize.
+- 本仓库内容据维护者说明，仅用于测试大型语言模型及相关自动化系统的能力、稳定性、边界与失效模式。
+- 除为发布、归档、保全或最小必要维护而进行的平台性操作外，本仓库内容未经过人工开发、人工安全审计、人工合规审查、人工质量验证或人工批准。
+- 本仓库不构成产品、服务、技术方案、投资建议、交易建议、财务建议、法律建议或安全建议。
+- 多语言法律声明见 [NOTICE.md](NOTICE.md)。
 
-## ✨ Features
-- Dark Mode: Enjoy a Tradingview-style dark theme for better visual clarity.
-- Customizable View: Easily add or remove charts as per your preferences.
-- Real-time Updates: Stay updated with live data thanks to the Binance websocket integration.
+## 当前状态
 
-## Dependencies
-The required packages to run this code can be found in the `requirements.txt` file. To run this file, execute the following code block:
-```
-pip install -r requirements.txt 
-```
+本仓库当前仅以历史样本和说明性材料的形式保留，不作为生产工具、可部署策略、经人工审核实现或对外背书项目维护。
 
-## How to run
-- Clone the repository
-- Run `python src/finplot/main.py` or `python src/mplfinance/main.py` 
-- See result
+## 文档索引
 
-## Images
-### finplot
-![Chart](https://github.com/StephanAkkerman/Live_Binance_Charts/blob/main/img/charts.png)
+- [NOTICE.md](NOTICE.md)：多语言仓库说明与法律免责声明
+- [均线配置说明.md](均线配置说明.md)：历史 AI 生成样本文字，仅供归档，不应依赖
+- [性能优化总结.md](性能优化总结.md)：历史 AI 生成样本文字，仅供归档，不应依赖
 
-### mplfinance
-![image](https://github.com/StephanAkkerman/live-binance-charts/assets/45365128/242ea434-809c-4b80-bec3-0059a8d1a3ae)
+## 许可边界
 
+本仓库可能包含第三方代码、上游 fork 内容或受既有开源许可约束的材料。相关权利与许可继续适用；详见 [LICENSE](LICENSE) 与 [NOTICE.md](NOTICE.md)。
