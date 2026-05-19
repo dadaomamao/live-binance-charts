@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src https://data-api.binance.vision https://api.binance.com wss://stream.binance.com:9443; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+    <title>独立行情看板</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-block">
+          <div class="brand-mark" aria-hidden="true"></div>
+          <div>
+            <div class="brand-title">行情实验室</div>
+            <div class="brand-subtitle">独立行情看板</div>
+          </div>
+        </div>
+        <nav class="topnav" aria-label="主导航">
+          <button class="topnav-item active">现货</button>
+        </nav>
+        <div class="top-actions">
+          <button class="icon-button" id="themeToggle" title="切换明暗细节" aria-label="切换明暗细节">◐</button>
+          <button class="ghost-button" id="connectionState">连接中</button>
+        </div>
+      </header>
+
+      <section class="market-strip" aria-label="市场摘要">
+        <div class="symbol-picker">
+          <label for="symbolSelect">交易对</label>
+          <select id="symbolSelect">
+            <option value="BTCUSDT">BTC/USDT</option>
+            <option value="ETHUSDT">ETH/USDT</option>
+            <option value="BNBUSDT">BNB/USDT</option>
+            <option value="SOLUSDT">SOL/USDT</option>
+            <option value="XRPUSDT">XRP/USDT</option>
+          </select>
+        </div>
+        <div class="last-price" id="lastPrice">--</div>
+        <div class="metric">
+          <span>24小时涨跌</span>
+          <strong id="priceChange">--</strong>
+        </div>
+        <div class="metric">
+          <span>24小时最高</span>
+          <strong id="high24">--</strong>
+        </div>
+        <div class="metric">
+          <span>24小时最低</span>
+          <strong id="low24">--</strong>
+        </div>
+        <div class="metric">
+          <span>24小时成交额</span>
+          <strong id="quoteVolume">--</strong>
+        </div>
+      </section>
+
+      <main class="workspace">
+        <aside class="watchlist panel" aria-label="市场列表">
+          <div class="panel-title-row">
+            <h2>市场</h2>
+            <button class="icon-button compact" id="refreshButton" title="刷新" aria-label="刷新">↻</button>
+          </div>
+          <div class="search-wrap">
+            <input id="marketFilter" type="search" placeholder="搜索" autocomplete="off">
+          </div>
+          <div class="market-list" id="marketList"></div>
+        </aside>
+
+        <section class="chart-panel panel" aria-label="蜡烛图">
+          <div class="chart-toolbar">
+            <div class="intervals" id="intervalButtons"></div>
+            <div class="indicator-switches">
+              <button class="chip active" data-ma="7">均线7</button>
+              <button class="chip active" data-ma="25">均线25</button>
+              <button class="chip" data-ma="99">均线99</button>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="priceCanvas"></canvas>
+            <div class="crosshair-tip" id="crosshairTip" hidden></div>
+          </div>
+          <div class="chart-footer">
+            <div id="candleSummary">等待行情</div>
+            <div>滚轮缩放</div>
+          </div>
+        </section>
+
+        <aside class="book-panel panel" aria-label="盘口和成交">
+          <div class="book-tabs">
+            <button class="tab active" data-tab="book">盘口</button>
+            <button class="tab" data-tab="trades">成交</button>
+          </div>
+          <div class="book-view" id="bookView">
+            <div class="book-header">
+              <span>价格</span>
+              <span>数量</span>
+              <span>累计</span>
+            </div>
+            <div class="book-side asks" id="asks"></div>
+            <div class="spread-row" id="spreadRow">--</div>
+            <div class="book-side bids" id="bids"></div>
+          </div>
+          <div class="trades-view hidden" id="tradesView">
+            <div class="book-header">
+              <span>价格</span>
+              <span>数量</span>
+              <span>时间</span>
+            </div>
+            <div id="tradeTape"></div>
+          </div>
+        </aside>
+
+        <section class="depth-panel panel" aria-label="深度和模拟">
+          <div class="depth-chart-wrap">
+            <canvas id="depthCanvas"></canvas>
+          </div>
+          <div class="order-sim">
+            <div class="segmented">
+              <button class="segment active">限价</button>
+              <button class="segment">市价</button>
+              <button class="segment">止盈止损</button>
+            </div>
+            <label>
+              价格
+              <input id="simPrice" inputmode="decimal" value="">
+            </label>
+            <label>
+              数量
+              <input id="simQty" inputmode="decimal" value="0.01">
+            </label>
+            <div class="sim-total">
+              <span>估算</span>
+              <strong id="simTotal">-- USDT</strong>
+            </div>
+            <div class="sim-actions">
+              <button class="buy-button" disabled>买入模拟</button>
+              <button class="sell-button" disabled>卖出模拟</button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
