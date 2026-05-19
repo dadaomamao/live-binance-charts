@@ -1,3 +1,10 @@
+# [NOTICE.md / 重要声明 / Notice / 重要なお知らせ / 중요 고지](NOTICE.md)
+
+- 中文：请先阅读 [NOTICE.md](NOTICE.md)：本仓库仅为 AI 生成或处理的只读 K 线看板测试样本，不构成任何建议、授权或背书。
+- English: Read [NOTICE.md](NOTICE.md) first: this repository is only an AI-generated or AI-processed read-only chart dashboard test sample, not advice, authorization, or endorsement.
+- 日本語：[NOTICE.md](NOTICE.md) を先にお読みください：本リポジトリは AI が生成又は処理した読み取り専用チャートダッシュボードのテストサンプルにすぎず、助言、許諾又は支持表示ではありません。
+- 한국어: [NOTICE.md](NOTICE.md)를 먼저 읽어 주세요: 이 저장소는 AI가 생성하거나 처리한 읽기 전용 차트 대시보드 테스트 샘플일 뿐이며, 조언, 허가 또는 보증이 아닙니다.
+
 # 独立 K 线看板
 
 这是一个独立实现的网页版 K 线看板原型。目标是复刻主流加密货币交易所网页看板的功能结构和操作密度：行情标题栏、K 线图、均线、成交量、盘口、成交流、市场列表和只读下单模拟区。
